@@ -13,11 +13,14 @@ export async function GET(request, { params }) {
       },
     });
 
-    if (!res.ok) {
+    const html_raw = await res.text();
+    // The source sometimes returns 500 but still has valid player HTML
+    // Only reject if there's actually no content
+    if (!html_raw || html_raw.length < 100) {
       return new NextResponse("Stream not available", { status: 502 });
     }
 
-    let html = await res.text();
+    let html = html_raw;
 
     // ===== STRIP ALL AD SCRIPTS =====
 
@@ -42,10 +45,10 @@ export async function GET(request, { params }) {
     html = html.replace(/window\.open\s*\(/g, "void(0);//(");
 
     // Rewrite the premium.js script to use our player proxy
-    // Original: <script type="text/javascript" src="//executeandship.com/premium.js"></script>
-    // We replace the entire player loading mechanism with our own clean version
+    // The HTML has: <script>fid="xxx"; v_width="100%"; v_height="100%";</script>
+    //              <script type="text/javascript" src="//executeandship.com/premium.js"></script>
     html = html.replace(
-      /<script>fid="([^"]+)";\s*v_width="([^"]+)";\s*v_height="([^"]+)";<\/script>\s*<script[^>]*src="[^"]*executeandship\.com\/premium\.js"[^>]*><\/script>/gi,
+      /<script>fid="([^"]+)";\s*v_width="([^"]+)";\s*v_height="([^"]+)";<\/script>[\s\S]*?<script[^>]*src="[^"]*executeandship\.com\/premium\.js"[^>]*><\/script>/gi,
       (match, fid, width, height) => {
         return `<div id="playerContainer" style="width:${width};height:${height};overflow:hidden;">
           <iframe src="/api/player/${fid}" style="width:100%;height:100%;border:0;" scrolling="no" allowfullscreen allow="autoplay; encrypted-media; fullscreen; picture-in-picture"></iframe>
