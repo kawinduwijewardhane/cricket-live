@@ -8,6 +8,7 @@ export async function GET(request, { params }) {
 
   try {
     const res = await fetch(playerUrl, {
+      cache: "no-store",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -15,11 +16,12 @@ export async function GET(request, { params }) {
       },
     });
 
-    if (!res.ok) {
+    const html_raw = await res.text();
+    if (!html_raw || html_raw.length < 100) {
       return new NextResponse("Player not available", { status: 502 });
     }
 
-    let html = await res.text();
+    let html = html_raw;
 
     // ===== STRIP ALL ADS FROM PLAYER PAGE =====
 
