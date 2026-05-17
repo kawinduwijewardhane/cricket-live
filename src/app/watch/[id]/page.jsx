@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default async function WatchPage({ params }) {
   const { id } = await params;
-  const streamUrl = `https://streamcrichd.com/update/fetch.php?hd=${id}`;
+  const streamUrl = `https://streamcrichd.com/update/fetch.php?hd=${id}&embed=1`;
 
   return (
     <div>
@@ -23,9 +23,9 @@ export default async function WatchPage({ params }) {
             src={streamUrl}
             title={`Live Stream - Channel ${id}`}
             className="absolute top-0 left-0 w-full h-full border-0"
+            scrolling="no"
             allowFullScreen
-            allow="autoplay; encrypted-media"
-            referrerPolicy="no-referrer"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
           />
         </div>
       </div>
