@@ -19,71 +19,106 @@ export async function GET(request, { params }) {
 
     let html = await res.text();
 
-    // Remove known ad/popup scripts and domains
-    const adPatterns = [
-      /<script[^>]*src=[^>]*(histats|dtscout|dtscdn|mrktmtrcs|cloudflareinsights|corseclerk|ecbtryst|riverlayboy|pavanescrambos|masonerthoria|srvqck|dissourzendos)[^>]*><\/script>/gi,
-      /<script[^>]*>([\s\S]*?(window\.open|popup|popunder|onclick\s*=|document\.createElement\('script'\))[\s\S]*?)<\/script>/gi,
-      /window\.open\s*\([^)]*\)/gi,
-      /onclick\s*=\s*["'][^"']*window\.open[^"']*["']/gi,
-    ];
+    // ===== STRIP ALL AD SCRIPTS =====
 
-    for (const pattern of adPatterns) {
-      html = html.replace(pattern, "");
+    // Remove popup library (lib.js loads aclib)
+    html = html.replace(/<script[^>]*src="[^"]*lib\.js[^"]*"[^>]*><\/script>/gi, "");
+
+    // Remove aclib.runPop calls
+    html = html.replace(/<script>[^<]*aclib[^<]*<\/script>/gi, "");
+
+    // Remove naupsithizeekee/zone ad scripts
+    html = html.replace(/<script>\(function\(s,u,z,p\)\{[\s\S]*?<\/script>/gi, "");
+
+    // Remove histats block
+    html = html.replace(/<!--\s*Histats[\s\S]*?END\s*-->/gi, "");
+    html = html.replace(/<script[^>]*>[\s\S]*?_Hasync[\s\S]*?<\/script>/gi, "");
+    html = html.replace(/<noscript>[\s\S]*?histats[\s\S]*?<\/noscript>/gi, "");
+
+    // Remove any script with known ad domains
+    html = html.replace(/<script[^>]*src=[^>]*(histats|dtscout|dtscdn|mrktmtrcs|cloudflareinsights|corseclerk|ecbtryst|riverlayboy|pavanescrambos|masonerthoria|srvqck|dissourzendos|naupsithizeekee|popunder|popads|adserv)[^>]*>[\s\S]*?<\/script>/gi, "");
+
+    // Replace window.open in remaining code
+    html = html.replace(/window\.open\s*\(/g, "void(0);//(");
+
+    // ===== INJECT AD BLOCKER (runs BEFORE premium.js) =====
+    const adBlockJS = `<script>
+(function(){
+  // Block all popup/popunder attempts
+  window.open = function(){ return null; };
+  
+  // Freeze it so ad scripts can't reassign
+  Object.defineProperty(window, 'open', {
+    value: function(){ return null; },
+    writable: false,
+    configurable: false
+  });
+
+  // Block aclib before it can be defined
+  Object.defineProperty(window, 'aclib', {
+    value: { runPop:function(){}, runNative:function(){}, runAutoTag:function(){}, runBanner:function(){} },
+    writable: false,
+    configurable: false
+  });
+
+  // Block popMagic
+  Object.defineProperty(window, 'popMagic', {
+    value: { init:function(){}, run:function(){} },
+    writable: false,
+    configurable: false
+  });
+
+  // Block ad zone scripts from creating elements
+  var _origCreate = document.createElement.bind(document);
+  document.createElement = function(tag){
+    var el = _origCreate(tag);
+    if(tag.toLowerCase() === 'script'){
+      var _origSrc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src');
+      Object.defineProperty(el, 'src', {
+        set: function(val){
+          if(typeof val === 'string' && (
+            val.includes('naupsithizeekee') ||
+            val.includes('histats') ||
+            val.includes('popunder') ||
+            val.includes('popads') ||
+            val.includes('adserv') ||
+            val.includes('tag.min.js')
+          )){
+            return; // block
+          }
+          _origSrc.set.call(this, val);
+        },
+        get: function(){ return _origSrc.get.call(this); }
+      });
     }
+    return el;
+  };
 
-    // Inject CSS to hide common ad overlays
-    const adBlockCSS = `
-      <style>
-        [id*="ad"], [class*="ad-"], [class*="popup"], [class*="overlay"]:not(video):not([class*="player"]),
-        [id*="banner"], [class*="banner"], iframe:not([src*="fetch.php"]):not([src*="player"]) {
-          display: none !important;
-        }
-      </style>
-    `;
+  // Block click event hijacking for popunders
+  var _origAdd = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function(type, fn, opts){
+    if((type === 'click' || type === 'mousedown' || type === 'pointerup') && fn){
+      var s = fn.toString();
+      if(s.includes('open') || s.includes('pop') || s.includes('zone')){
+        return;
+      }
+    }
+    return _origAdd.call(this, type, fn, opts);
+  };
 
-    // Inject script to block window.open and popups
-    const adBlockJS = `
-      <script>
-        // Block popups
-        window.open = function() { return null; };
-        // Block creating new script elements for ads
-        const origCreate = document.createElement.bind(document);
-        document.createElement = function(tag) {
-          const el = origCreate(tag);
-          if (tag === 'script') {
-            const origSetAttr = el.setAttribute.bind(el);
-            el.setAttribute = function(name, value) {
-              if (name === 'src' && (
-                value.includes('histats') || value.includes('dtscout') ||
-                value.includes('mrktmtrcs') || value.includes('corseclerk') ||
-                value.includes('ecbtryst') || value.includes('popunder') ||
-                value.includes('riverlayboy') || value.includes('pavanescrambos')
-              )) {
-                return;
-              }
-              return origSetAttr(name, value);
-            };
-          }
-          return el;
-        };
-        // Block event listeners that open popups
-        const origAddEvent = EventTarget.prototype.addEventListener;
-        EventTarget.prototype.addEventListener = function(type, fn, opts) {
-          if (type === 'click' && fn.toString().includes('window.open')) {
-            return;
-          }
-          return origAddEvent.call(this, type, fn, opts);
-        };
-      </script>
-    `;
+  // Also override document-level click
+  document.addEventListener('click', function(e){
+    // Prevent any default popup behavior on body/document clicks
+  }, true);
+})();
+</script>`;
 
-    // Inject our blockers into the head
-    html = html.replace("</head>", adBlockCSS + adBlockJS + "</head>");
+    // Inject BEFORE everything else in <head>
+    html = html.replace("<head>", "<head>\n" + adBlockJS);
 
     return new NextResponse(html, {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "X-Frame-Options": "SAMEORIGIN",
       },
     });
   } catch (error) {

@@ -1,7 +1,6 @@
 "use client";
 
 export default function StreamPlayer({ channelId }) {
-  // Use our proxy route which strips ad scripts
   const streamUrl = `/api/stream/${channelId}`;
 
   return (
@@ -13,7 +12,7 @@ export default function StreamPlayer({ channelId }) {
           className="absolute top-0 left-0 w-full h-full border-0"
           scrolling="no"
           allowFullScreen
-          sandbox="allow-scripts allow-same-origin allow-presentation"
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
           allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
         />
       </div>
