@@ -1,11 +1,11 @@
 import Link from "next/link";
+import StreamPlayer from "./StreamPlayer";
 
 export default async function WatchPage({ params }) {
   const { id } = await params;
-  const streamUrl = `https://streamcrichd.com/update/fetch.php?hd=${id}&embed=1`;
 
   return (
-    <div>
+    <div className="max-w-5xl mx-auto">
       <div className="mb-3 flex items-center gap-3">
         <Link
           href="/"
@@ -16,19 +16,7 @@ export default async function WatchPage({ params }) {
         <span className="text-xs text-gray-400">Channel {id}</span>
       </div>
 
-      {/* Video Player */}
-      <div className="bg-black rounded-lg overflow-hidden shadow-sm">
-        <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
-          <iframe
-            src={streamUrl}
-            title={`Live Stream - Channel ${id}`}
-            className="absolute top-0 left-0 w-full h-full border-0"
-            scrolling="no"
-            allowFullScreen
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-          />
-        </div>
-      </div>
+      <StreamPlayer channelId={id} />
 
       <div className="mt-3 bg-white rounded-lg p-3 shadow-sm border border-gray-100">
         <div className="flex items-center gap-2">
