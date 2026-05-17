@@ -24,7 +24,7 @@ export default async function Home() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {liveMatches.map((match) => (
             <MatchCard key={match.id} match={match} />
           ))}
@@ -35,7 +35,7 @@ export default async function Home() {
       {upcomingMatches.length > 0 && (
         <section>
           <h2 className="text-base font-bold text-gray-900 mb-3">Upcoming</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {upcomingMatches.map((match) => (
               <MatchCard key={match.id} match={match} />
             ))}
